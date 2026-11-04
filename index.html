@@ -10,7 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-WJ6RQGZS');</script>
 <!-- End Google Tag Manager -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Énigmes d'échecs : trouve le coup gagnant, puis joue contre l'ordinateur.">
+<meta name="description" content="Énigmes d'échecs : trouve le coup gagnant, joue contre l'ordinateur ou contre un ami.">
 <title>Trouve le Coup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -245,6 +245,26 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 .toggle input { accent-color: var(--brass); width: 16px; height: 16px; }
 .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--paper); color: var(--ink); padding: 10px 16px; border-radius: 8px; font-weight: 600; font-size: 14px; z-index: 50; box-shadow: 0 10px 30px rgba(0,0,0,.5); }
 
+/* Friend mode */
+.top-actions { flex-wrap: wrap; }
+@media (max-width: 480px) { .seg button { padding: 8px 11px; font-size: 13px; } }
+.code { font-family: var(--f-mono); font-size: 34px; letter-spacing: .18em; color: var(--brass); text-align: center; padding: 4px 0; }
+.link { font-family: var(--f-mono); font-size: 12px; color: var(--muted); background: var(--ink-3); border-radius: 8px; padding: 10px 12px; overflow-wrap: anywhere; user-select: all; -webkit-user-select: all; }
+.join { display: flex; gap: 8px; }
+.join input { flex: 1; min-width: 0; background: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; color: var(--paper); font-family: var(--f-mono); font-size: 18px; letter-spacing: .14em; text-transform: uppercase; }
+.or { display: flex; align-items: center; gap: 10px; color: var(--muted); font-size: 12px; text-transform: uppercase; letter-spacing: .12em; }
+.or::before, .or::after { content: ""; flex: 1; height: 1px; background: var(--line); }
+.conn { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+.led { width: 9px; height: 9px; border-radius: 50%; background: var(--muted); flex: none; }
+.led.on { background: var(--ok); box-shadow: 0 0 8px var(--ok); } .led.off { background: var(--danger); } .led.wait { background: var(--brass); animation: pulse 1s infinite; }
+.emotes { display: flex; flex-wrap: wrap; gap: 6px; }
+.emotes button { border: 1px solid var(--line); background: var(--ink-3); border-radius: 999px; padding: 6px 12px; cursor: pointer; font-size: 13px; font-weight: 600; }
+.emotes button:hover { border-color: var(--brass-dim); }
+.player { position: relative; }
+.bubble { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--paper); color: var(--ink); font-weight: 700; font-size: 14px; padding: 6px 14px; border-radius: 999px; white-space: nowrap; z-index: 8; box-shadow: 0 6px 18px rgba(0,0,0,.4); animation: rise .3s; }
+.btn.danger { border-color: var(--danger); color: var(--danger); }
+.waiting { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--paper); }
+
 @media (prefers-reduced-motion: reduce) {
   .pc.anim { transition: none; } .sq.hint::after, .clock.low .num { animation: none; } .sweep { display: none; } .overlay .card { animation: none; }
 }
@@ -255,7 +275,6 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 <noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-WJ6RQGZS"
 height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
 <!-- End Google Tag Manager (noscript) -->
-
 <div class="wrap">
   <header class="top">
     <div class="brand">
@@ -266,6 +285,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
       <div class="seg" role="group" aria-label="Mode de jeu">
         <button id="mode-puzzle" aria-pressed="true">Énigmes</button>
         <button id="mode-free" aria-pressed="false">Partie libre</button>
+        <button id="mode-ami" aria-pressed="false">Avec un ami</button>
       </div>
       <button class="icon-btn" id="look-btn" aria-label="Apparence de l'échiquier" title="Apparence" aria-expanded="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M3 12h18M12 3v18"/><path d="M3 3h9v9H3zM12 12h9v9h-9z" fill="currentColor" stroke="none" opacity=".45"/></svg></button>
       <button class="icon-btn" id="sound-btn" aria-label="Couper le son" title="Son"></button>
@@ -328,6 +348,55 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="box">
           <span class="eyebrow">Feuille de partie</span>
           <div class="moves" id="moves-p"></div>
+        </div>
+      </div>
+
+      <!-- Friend panel -->
+      <div id="panel-ami" class="panel" hidden>
+        <div class="box" id="ami-setup">
+          <span class="eyebrow">Jouer avec un ami</span>
+          <p class="explain">Crée une partie et envoie le lien à ton ami. Vous jouez chacun sur votre écran, sur ordinateur ou sur téléphone.</p>
+          <div class="opt">
+            <label>Tu joues</label>
+            <div class="pills" id="ami-color">
+              <button data-v="w" aria-pressed="true">Les Blancs</button>
+              <button data-v="b" aria-pressed="false">Les Noirs</button>
+              <button data-v="r" aria-pressed="false">Au hasard</button>
+            </div>
+          </div>
+          <button class="btn primary" id="ami-create">Créer une partie</button>
+          <div class="or">ou</div>
+          <form class="join" id="ami-join-form">
+            <input id="ami-code" maxlength="6" placeholder="CODE" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Code de la partie">
+            <button class="btn" type="submit">Rejoindre</button>
+          </form>
+          <div class="feedback" id="ami-feedback" role="status" aria-live="polite" hidden></div>
+        </div>
+        <div class="box" id="ami-wait" hidden>
+          <span class="eyebrow">Partie créée</span>
+          <div class="code" id="ami-code-big"></div>
+          <div class="waiting"><span class="led wait"></span>En attente de ton ami…</div>
+          <div class="link" id="ami-link"></div>
+          <div class="btns">
+            <button class="btn primary" id="ami-share">Envoyer le lien</button>
+            <button class="btn" id="ami-copy">Copier</button>
+            <button class="btn full" id="ami-cancel">Annuler</button>
+          </div>
+        </div>
+        <div class="box" id="ami-game" hidden>
+          <div class="conn"><span class="led" id="ami-led"></span><span id="ami-conn"></span></div>
+          <div class="status" id="ami-status"></div>
+          <button class="btn" id="ami-reco" hidden>Se reconnecter</button>
+          <div class="emotes" id="ami-emotes"></div>
+          <div class="btns">
+            <button class="btn" id="ami-draw">Proposer nulle</button>
+            <button class="btn" id="ami-resign">Abandonner</button>
+            <button class="btn full" id="ami-leave">Quitter la partie</button>
+          </div>
+        </div>
+        <div class="box">
+          <span class="eyebrow">Feuille de partie</span>
+          <div class="moves" id="moves-a"></div>
         </div>
       </div>
 
@@ -963,9 +1032,10 @@ function renderPlayers() {
     const name = c === "w" ? "Blancs" : "Noirs";
     let who = "";
     if (S.mode === "free") who = c === S.free.color ? "Toi" : "Ordinateur";
+    else if (S.mode === "ami") who = c === A.myColor ? "Toi" : "Ton ami";
     else who = c === S.startTurn ? "Toi" : "Adversaire";
     const adv = (c === "w" ? mat : -mat);
-    const capt = S.mode === "free" ? capturedBy(c) : "";
+    const capt = S.mode !== "puzzle" ? capturedBy(c) : "";
     return `<span><span class="dot ${c}"></span><strong>${who}</strong> <span>· ${name}</span></span>` +
       `<span class="captured">${capt}${adv > 0 ? `<span class="adv">+${Math.round(adv / 100)}</span>` : ""}</span>`;
   };
@@ -976,7 +1046,7 @@ function renderPlayers() {
 }
 
 function renderMoves() {
-  const el = S.mode === "puzzle" ? $("moves-p") : $("moves-f");
+  const el = $({ puzzle: "moves-p", free: "moves-f", ami: "moves-a" }[S.mode]);
   if (!S.sans.length) { el.innerHTML = `<span class="moves-empty" style="grid-column:1/-1">Aucun coup joué.</span>`; return; }
   let html = "", n = S.startFull, i = 0;
   if (S.startTurn === "b") { html += `<span class="n">${n}.</span><span>…</span><span${S.sans.length === 1 ? ' class="cur"' : ""}>${S.sans[0]}</span>`; i = 1; n++; }
@@ -1003,6 +1073,7 @@ const clearArrows = () => { arrowsEl.innerHTML = ""; };
 function canMoveNow() {
   if (S.locked) return false;
   if (S.mode === "puzzle") return !S.pz.done && !S.pz.playing && S.game.turn === S.startTurn;
+  if (S.mode === "ami") return amiCanPlay();
   return !S.free.over && !S.free.thinking && S.game.turn === S.free.color;
 }
 function select(sq) {
@@ -1079,6 +1150,7 @@ function applyMove(m, opts = {}) {
 
 function commitUser(m, dragged) {
   if (S.mode === "puzzle") return puzzleMove(m, dragged);
+  if (S.mode === "ami") return amiLocalMove(m, dragged);
   applyMove(m, { noAnim: dragged });
   afterFreeMove();
 }
@@ -1367,14 +1439,295 @@ function toast(msg) {
   t.textContent = msg; clearTimeout(toastT); toastT = setTimeout(() => t.remove(), 3200);
 }
 function setMode(m) {
-  S.mode = m;
-  $("mode-puzzle").setAttribute("aria-pressed", String(m === "puzzle"));
-  $("mode-free").setAttribute("aria-pressed", String(m === "free"));
-  $("panel-puzzle").hidden = m !== "puzzle"; $("panel-free").hidden = m !== "free";
-  if (m === "puzzle") loadPuzzle(S.pz.i || 0); else newFree();
+  S.mode = m; stopTimer();
+  for (const [k, id] of [["puzzle", "mode-puzzle"], ["free", "mode-free"], ["ami", "mode-ami"]]) {
+    $(id).setAttribute("aria-pressed", String(m === k));
+    $("panel-" + k).hidden = m !== k;
+  }
+  if (m === "puzzle") loadPuzzle(S.pz.i || 0);
+  else if (m === "free") newFree();
+  else enterAmiBoard();
 }
 $("mode-puzzle").onclick = () => S.mode !== "puzzle" && setMode("puzzle");
 $("mode-free").onclick = () => S.mode !== "free" && setMode("free");
+$("mode-ami").onclick = () => S.mode !== "ami" && setMode("ami");
+
+/* ================= Friend mode (online, peer to peer) ================= */
+const PEER_URL = "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
+const ID_PREFIX = "trouvelecoup-";
+const EMOTES = ["Bien joué !", "Aïe…", "Je réfléchis", "Oups", "Bonne partie !"];
+const A = { game: new Game(), sans: [], last: null, myColor: "w", pref: "w", role: null, peer: null, conn: null, code: "", started: false, over: null };
+let pendingAsk = null, lastEmote = 0;
+function loadPeer() {
+  if (window.Peer) return Promise.resolve();
+  return new Promise((res, rej) => {
+    const s = document.createElement("script"); s.src = PEER_URL;
+    s.onload = res; s.onerror = () => rej(new Error("lib"));
+    document.head.appendChild(s);
+  });
+}
+function genCode() {
+  const al = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789", r = new Uint32Array(6);
+  crypto.getRandomValues(r); let c = "";
+  for (const x of r) c += al[x % al.length];
+  return c;
+}
+const amiLink = code => location.origin + location.pathname + "#ami-" + code;
+function amiView(v) { $("ami-setup").hidden = v !== "setup"; $("ami-wait").hidden = v !== "wait"; $("ami-game").hidden = v !== "game"; }
+function amiMsg(text, kind) { const f = $("ami-feedback"); f.textContent = text; f.className = "feedback" + (kind ? " " + kind : ""); f.hidden = !text; }
+function setLed(state, text) { $("ami-led").className = "led " + state; $("ami-conn").textContent = text; }
+function send(msg) { try { if (A.conn && A.conn.open) { A.conn.send(msg); return true; } } catch (e) {} return false; }
+function amiCanPlay() { return !S.locked && A.started && !A.over && !!A.conn && A.conn.open && A.game.turn === A.myColor; }
+function amiDestroy() {
+  try { if (A.conn) A.conn.close(); } catch (e) {}
+  try { if (A.peer) A.peer.destroy(); } catch (e) {}
+  A.conn = null; A.peer = null;
+}
+function resetAmiGame(myColor) {
+  A.game = new Game(); A.sans = []; A.last = null; A.myColor = myColor; A.over = null;
+  if (S.mode === "ami") enterAmiBoard();
+}
+function enterAmiBoard() {
+  hideOverlay(); clearArrows(); frameEl.classList.remove("win");
+  S.game = A.game; S.sans = A.sans; S.last = A.last; S.startFull = 1; S.startTurn = "w";
+  S.flipped = A.myColor === "b"; S.sel = -1; S.targets = []; S.hint = -1; S.wrong = -1;
+  layoutSquares(); render(); amiStatus();
+  if (pendingAsk) { const p = pendingAsk; pendingAsk = null; amiAsk(...p); }
+}
+function amiStatus() {
+  const st = $("ami-status");
+  if (!A.started) { st.textContent = ""; return; }
+  if (A.over) { st.textContent = A.over.text; return; }
+  st.textContent = (A.game.inCheck() ? "Échec ! " : "") + (A.game.turn === A.myColor ? "À toi de jouer." : "Ton ami réfléchit…");
+}
+function amiError(text) {
+  if (A.started) { setLed("off", text); $("ami-reco").hidden = A.role !== "guest"; }
+  else { amiView("setup"); amiMsg(text, "bad"); }
+}
+function amiFinish(r) {
+  A.over = r; amiStatus();
+  track("ami_fin", { resultat: r.me });
+  if (S.mode !== "ami") { toast(r.text); return; }
+  if (r.me === "win") { SFX.win(); frameEl.classList.add("win"); const sw = document.createElement("div"); sw.className = "sweep"; frameEl.appendChild(sw); setTimeout(() => sw.remove(), 1200); }
+  showOverlay(r.me === "win" ? "Victoire !" : r.me === "loss" ? "Défaite" : "Partie nulle", r.text, "Proposer une revanche", amiRematch);
+}
+function amiCheckEnd() {
+  const s = A.game.status(); if (!s) return false;
+  if (s === "mate") {
+    const iLost = A.game.turn === A.myColor;
+    amiFinish(iLost ? { me: "loss", text: "Échec et mat. Ton ami gagne.", textOther: "Échec et mat. Tu gagnes !" }
+                    : { me: "win", text: "Échec et mat. Tu gagnes !", textOther: "Échec et mat. Ton ami gagne." });
+  } else {
+    amiFinish({ me: "draw", text: { stalemate: "Pat. Partie nulle.", fifty: "Règle des 50 coups. Partie nulle.", repetition: "Triple répétition. Partie nulle.", material: "Matériel insuffisant. Partie nulle." }[s] });
+  }
+  return true;
+}
+function amiLocalMove(m, dragged) {
+  const ply = A.game.hist.length;
+  applyMove(m, { noAnim: dragged }); A.last = m;
+  send({ t: "move", uci: uciOf(m), ply });
+  if (!amiCheckEnd()) amiStatus();
+}
+function amiRemoteMove(uci, ply) {
+  if (ply !== A.game.hist.length) { send({ t: "sync?" }); return; }
+  const m = A.game.findUci(uci);
+  if (!m) { send({ t: "sync?" }); return; }
+  if (S.mode === "ami") { applyMove(m); A.last = m; }
+  else { const san = A.game.san(m); A.game.play(m); A.sans.push(san); A.last = m; moveSound(A.game, m); toast(`Ton ami a joué ${san}.`); }
+  if (!amiCheckEnd()) amiStatus();
+}
+const stateMsg = () => ({ t: "state", moves: A.game.hist.map(h => uciOf(h.m)), guestColor: A.myColor === "w" ? "b" : "w", over: A.over });
+function applyState(msg) {
+  A.myColor = msg.guestColor === "b" ? "b" : "w";
+  A.game = new Game(); A.sans = []; A.last = null;
+  for (const u of (msg.moves || [])) { const m = A.game.findUci(u); if (!m) break; A.sans.push(A.game.san(m)); A.game.play(m); A.last = m; }
+  const o = msg.over;
+  A.over = !o ? null : o.me === "draw" ? o : { me: o.me === "win" ? "loss" : "win", text: o.textOther || o.text };
+  A.started = true;
+  amiView("game"); setLed("on", "Connecté à ton ami"); $("ami-reco").hidden = true;
+  if (S.mode === "ami") enterAmiBoard(); else amiStatus();
+}
+function hostRematch() {
+  resetAmiGame(A.myColor === "w" ? "b" : "w");
+  send(stateMsg()); amiStatus(); SFX.start();
+  toast("Revanche ! Les couleurs sont inversées.");
+}
+function amiRematch() {
+  if (!A.over) return;
+  toast(send({ t: "rematch?" }) ? "Demande de revanche envoyée." : "Ton ami n'est plus connecté.");
+}
+function amiAsk(text, yes, no) {
+  if (S.mode !== "ami") { pendingAsk = [text, yes, no]; toast(text + " Va dans « Avec un ami » pour répondre."); return; }
+  const o = $("overlay");
+  o.innerHTML = `<div class="card"><h3>${text}</h3><div class="row" style="justify-content:center"><button class="btn primary" id="ask-yes">Accepter</button><button class="btn" id="ask-no">Refuser</button></div></div>`;
+  o.hidden = false; SFX.check();
+  $("ask-yes").onclick = () => { hideOverlay(); yes(); };
+  $("ask-no").onclick = () => { hideOverlay(); no(); };
+}
+function bubble(text, mine) {
+  if (S.mode !== "ami") { if (!mine) toast("Ton ami : " + text); return; }
+  const el = $(mine ? "p-bot" : "p-top");
+  const b = document.createElement("span"); b.className = "bubble"; b.textContent = text;
+  el.appendChild(b); setTimeout(() => b.remove(), 2600);
+  if (!mine) SFX.tick();
+}
+const drawAgreed = () => ({ me: "draw", text: "Nulle d'un commun accord." });
+function amiData(msg) {
+  if (!msg || typeof msg !== "object") return;
+  switch (msg.t) {
+    case "hello": case "sync?": if (A.role === "host") send(stateMsg()); break;
+    case "state":
+      if (A.role === "guest") { const fresh = !A.started; applyState(msg); if (fresh) { SFX.start(); toast("Connecté ! La partie commence."); track("ami_rejoint"); } }
+      break;
+    case "move": if (typeof msg.uci === "string" && Number.isInteger(msg.ply)) amiRemoteMove(msg.uci, msg.ply); break;
+    case "resign": if (!A.over) amiFinish({ me: "win", text: "Ton ami a abandonné. Tu gagnes !", textOther: "Tu as abandonné." }); break;
+    case "draw?": if (!A.over) amiAsk("Ton ami propose la nulle.", () => { send({ t: "draw!" }); amiFinish(drawAgreed()); }, () => send({ t: "draw-no" })); break;
+    case "draw!": if (!A.over) amiFinish(drawAgreed()); break;
+    case "draw-no": toast("Ton ami refuse la nulle."); break;
+    case "rematch?": amiAsk("Ton ami propose une revanche.", () => { send({ t: "rematch!" }); if (A.role === "host") hostRematch(); }, () => send({ t: "rematch-no" })); break;
+    case "rematch!": if (A.role === "host") hostRematch(); break;
+    case "rematch-no": toast("Ton ami ne veut pas de revanche."); break;
+    case "emote": if (EMOTES[msg.i]) bubble(EMOTES[msg.i], false); break;
+    case "bye":
+      setLed("off", "Ton ami a quitté la partie.");
+      if (A.started && !A.over) amiFinish({ me: "win", text: "Ton ami a quitté la partie.", textOther: "Tu as quitté la partie." });
+      break;
+    case "full": amiDestroy(); amiError("Cette partie a déjà deux joueurs."); break;
+  }
+}
+function peerErr(e) {
+  const t = e && e.type;
+  if (t === "browser-incompatible") return "Ce navigateur ne permet pas le jeu en ligne. Essaie Chrome, Firefox ou Safari à jour.";
+  if (t === "peer-unavailable") return A.started ? "Ton ami n'est plus connecté." : "Partie introuvable. Vérifie le code, ou demande un nouveau lien à ton ami.";
+  if (["network", "server-error", "socket-error", "socket-closed"].includes(t)) return "Impossible de joindre le serveur de mise en relation. Vérifie ta connexion et réessaie.";
+  return "La connexion a échoué. Réessaie dans un instant.";
+}
+async function startPeer(id) {
+  try { await loadPeer(); } catch (e) { amiError("Impossible de charger le jeu en ligne. Vérifie ta connexion internet."); return null; }
+  if (!window.RTCPeerConnection || !window.Peer) { amiError("Le jeu en ligne n'est pas disponible ici. Ouvre le jeu sur son site pour jouer avec un ami."); return null; }
+  amiDestroy();
+  try { return id ? new Peer(id) : new Peer(); }
+  catch (e) { amiError("Le jeu en ligne n'est pas disponible ici. Ouvre le jeu sur son site pour jouer avec un ami."); return null; }
+}
+async function amiCreate() {
+  amiMsg("Création de la partie…", "info");
+  A.role = "host"; A.code = genCode(); A.started = false; A.over = null;
+  const peer = await startPeer(ID_PREFIX + A.code); if (!peer) return;
+  A.peer = peer;
+  peer.on("open", () => {
+    amiMsg(""); $("ami-code-big").textContent = A.code; $("ami-link").textContent = amiLink(A.code);
+    amiView("wait"); track("ami_creee");
+  });
+  peer.on("connection", hostAttach);
+  peer.on("disconnected", () => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} });
+  peer.on("error", e => { if (e.type === "unavailable-id") { amiCreate(); return; } if (e.type !== "peer-unavailable") amiError(peerErr(e)); });
+}
+function onConnData(c, d) {
+  if (!d || typeof d !== "object") return;
+  if (d.t === "ping") { try { c.send({ t: "pong" }); } catch (e) {} return; }
+  if (d.t === "pong") { if (c.__pong) c.__pong(); return; }
+  if (A.conn === c) amiData(d);
+}
+function onHostOpen(c) {
+  if (A.conn !== c) return;
+  if (!A.started) {
+    A.started = true;
+    resetAmiGame(A.pref === "r" ? (Math.random() < .5 ? "w" : "b") : A.pref);
+    SFX.start(); toast("Ton ami est arrivé. La partie commence !");
+  }
+  setLed("on", "Connecté à ton ami"); amiView("game"); amiStatus();
+  send(stateMsg());
+}
+function hostAttach(c) {
+  c.on("data", d => onConnData(c, d));
+  c.on("close", () => { if (A.conn === c) setLed("off", "Ton ami s'est déconnecté. Il peut revenir avec le même lien."); });
+  c.on("error", () => {});
+  if (A.conn && A.conn.open && A.conn !== c) {
+    // Someone else knocks while a link is up: keep the current player if they still answer, else let the newcomer (usually the same friend after a reload) take the seat.
+    const old = A.conn; let alive = false;
+    old.__pong = () => { alive = true; };
+    try { old.send({ t: "ping" }); } catch (e) {}
+    setTimeout(() => {
+      if (alive && old.open) {
+        const reject = () => { try { c.send({ t: "full" }); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 800); };
+        if (c.open) reject(); else c.on("open", reject);
+      } else {
+        A.conn = c; try { old.close(); } catch (e) {}
+        if (c.open) onHostOpen(c); else c.on("open", () => onHostOpen(c));
+      }
+    }, 2500);
+    return;
+  }
+  A.conn = c;
+  c.on("open", () => onHostOpen(c));
+}
+window.addEventListener("pagehide", () => { try { if (A.conn) A.conn.close(); } catch (e) {} });
+async function amiJoin(raw) {
+  const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
+  if (code.length !== 6) { amiMsg("Le code de la partie fait 6 caractères.", "bad"); return; }
+  amiMsg(`Connexion à la partie ${code}…`, "info");
+  A.role = "guest"; A.code = code; A.started = false; A.over = null;
+  const peer = await startPeer(); if (!peer) return;
+  A.peer = peer;
+  peer.on("open", guestConnect);
+  peer.on("disconnected", () => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} });
+  peer.on("error", e => amiError(peerErr(e)));
+  try { history.replaceState(null, "", "#ami-" + code); } catch (e) {}
+}
+function guestConnect() {
+  if (!A.peer) return;
+  const c = A.peer.connect(ID_PREFIX + A.code, { reliable: true });
+  A.conn = c;
+  if (A.started) setLed("wait", "Reconnexion…");
+  const timer = setTimeout(() => { if (!c.open) amiError("La connexion ne s'établit pas. Ton réseau bloque peut-être le jeu en ligne : essaie un autre réseau, ou la 4G."); }, 15000);
+  c.on("open", () => { clearTimeout(timer); amiMsg(""); send({ t: "hello" }); });
+  c.on("data", d => onConnData(c, d));
+  c.on("close", () => { if (A.conn === c) { setLed("off", "Connexion perdue."); $("ami-reco").hidden = false; } });
+  c.on("error", () => {});
+}
+function amiLeave() {
+  send({ t: "bye" });
+  setTimeout(() => {
+    amiDestroy(); A.started = false; A.role = null;
+    resetAmiGame("w"); amiView("setup"); amiMsg("");
+    try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
+  }, 200);
+}
+$("ami-color").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b) return;
+  $("ami-color").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+  A.pref = b.dataset.v;
+});
+$("ami-create").onclick = amiCreate;
+$("ami-join-form").addEventListener("submit", e => { e.preventDefault(); amiJoin($("ami-code").value); });
+$("ami-cancel").onclick = () => { amiDestroy(); A.role = null; amiView("setup"); };
+$("ami-copy").onclick = () => {
+  const url = amiLink(A.code);
+  try { navigator.clipboard.writeText(url).then(() => toast("Lien copié. Envoie-le à ton ami."), () => toast(url)); } catch (e) { toast(url); }
+};
+$("ami-share").onclick = () => {
+  const url = amiLink(A.code);
+  if (navigator.share) navigator.share({ title: "Trouve le Coup", text: "Viens jouer aux échecs contre moi !", url }).catch(() => {});
+  else $("ami-copy").onclick();
+};
+$("ami-reco").onclick = () => { $("ami-reco").hidden = true; if (A.peer && !A.peer.destroyed) guestConnect(); else amiJoin(A.code); };
+$("ami-emotes").innerHTML = EMOTES.map((t, i) => `<button data-i="${i}">${t}</button>`).join("");
+$("ami-emotes").addEventListener("click", e => {
+  const b = e.target.closest("button"); if (!b || Date.now() - lastEmote < 1200) return;
+  lastEmote = Date.now();
+  if (send({ t: "emote", i: +b.dataset.i })) bubble(EMOTES[+b.dataset.i], true);
+});
+$("ami-draw").onclick = () => { if (A.over || !A.started) return; toast(send({ t: "draw?" }) ? "Proposition de nulle envoyée." : "Ton ami n'est pas connecté."); };
+let resignArmed = null;
+$("ami-resign").onclick = () => {
+  if (A.over || !A.started) return;
+  const b = $("ami-resign");
+  if (!resignArmed) { b.textContent = "Confirmer l'abandon"; b.classList.add("danger"); resignArmed = setTimeout(() => { resignArmed = null; b.textContent = "Abandonner"; b.classList.remove("danger"); }, 3000); return; }
+  clearTimeout(resignArmed); resignArmed = null; b.textContent = "Abandonner"; b.classList.remove("danger");
+  send({ t: "resign" });
+  amiFinish({ me: "loss", text: "Tu as abandonné.", textOther: "Ton ami a abandonné. Tu gagnes !" });
+};
+$("ami-leave").onclick = amiLeave;
 
 const SPK_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 const SPK_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>';
@@ -1417,6 +1770,8 @@ document.body.dataset.board = look.board; document.body.dataset.pcolor = look.pc
 /* ================= Boot (with live-update state keeping) ================= */
 function start(data) {
   data = data || {};
+  const hm = /^#ami-([A-Za-z0-9]{6})$/.exec(location.hash);
+  if (hm) { setMode("ami"); amiJoin(hm[1]); return; }
   if (data.mode === "free") {
     S.free.color = data.color || "w"; S.free.level = data.level || 2;
     document.querySelectorAll("#pick-color button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.free.color)));
@@ -1436,5 +1791,6 @@ window.claude?.hot?.snapshot?.(() => ({
 window.claude?.hot?.ready ? window.claude.hot.ready(start) : start(window.claude?.hot?.data ?? {});
 })();
 </script>
+
 </body>
 </html>

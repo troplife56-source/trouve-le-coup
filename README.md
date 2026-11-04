@@ -5,6 +5,7 @@
 - 25 énigmes vérifiées en deux séries (débutant, club, maître)
 - Chrono, indices et solutions animées
 - Partie libre contre l'ordinateur, 3 niveaux
+- Partie en ligne avec un ami : on envoie un lien, chacun joue sur son écran
 - 6 plateaux, 3 styles et 4 couleurs de pièces
 
 Jouer : https://troplife56-source.github.io/trouve-le-coup/
