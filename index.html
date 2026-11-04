@@ -10,7 +10,7 @@ j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
 })(window,document,'script','dataLayer','GTM-WJ6RQGZS');</script>
 <!-- End Google Tag Manager -->
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<meta name="description" content="Énigmes d'échecs : trouve le coup gagnant, joue contre l'ordinateur ou contre un ami.">
+<meta name="description" content="Énigmes d'échecs : trouve le coup gagnant, joue contre l'ordinateur ou en ligne contre un ami, avec pendule et mode streamer.">
 <title>Trouve le Coup</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -264,6 +264,35 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 .bubble { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); background: var(--paper); color: var(--ink); font-weight: 700; font-size: 14px; padding: 6px 14px; border-radius: 999px; white-space: nowrap; z-index: 8; box-shadow: 0 6px 18px rgba(0,0,0,.4); animation: rise .3s; }
 .btn.danger { border-color: var(--danger); color: var(--danger); }
 .waiting { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--paper); }
+#panel-ami[data-role="spec"] .player-only { display: none !important; }
+#panel-ami:not([data-role="spec"]) .spec-only { display: none !important; }
+.specs { margin-left: auto; color: var(--brass); font-weight: 600; }
+.txt { background: var(--ink-3); border: 1px solid var(--line); border-radius: 8px; padding: 9px 12px; color: var(--paper); font: inherit; font-size: 14px; width: 100%; }
+.player .pl { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.player .pr { display: flex; align-items: center; gap: 10px; flex: none; }
+.pclock { font-family: var(--f-mono); font-variant-numeric: tabular-nums; font-size: 17px; padding: 3px 10px; border-radius: 6px; background: var(--ink-3); color: var(--muted); border: 1px solid var(--line); min-width: 64px; text-align: center; }
+.pclock.run { background: var(--paper); color: var(--ink); border-color: var(--paper); }
+.pclock.low { color: var(--danger); }
+.pclock.low.run { background: var(--danger); color: #fff; border-color: var(--danger); }
+/* Streamer mode: board, names and clocks only, sized to the window for screen capture */
+body.stream { --sw: min(calc(100vw - 32px), calc(100vh - 250px)); }
+body.stream .top, body.stream .panel, body.stream .sheet { display: none !important; }
+body.stream .wrap { max-width: none; }
+body.stream .main { display: flex; justify-content: center; }
+body.stream .board-col { gap: 12px; }
+body.stream .frame { width: var(--sw); max-width: none; }
+body.stream .player, body.stream .stream-foot { width: var(--sw); max-width: none; }
+body.stream .player { min-height: 58px; padding: 6px 8px 6px 16px; background: var(--ink-2); border: 1px solid var(--line); border-radius: 10px; font-size: 16px; }
+body.stream .player strong { font-size: 22px; }
+body.stream .player.turn { border-color: var(--brass-dim); }
+body.stream .pclock { font-size: 30px; padding: 4px 14px; min-width: 120px; }
+body.stream .bubble { font-size: 18px; padding: 8px 18px; }
+.stream-foot { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; color: var(--muted); font-size: 16px; }
+#stream-last { font-family: var(--f-mono); color: var(--paper); }
+.stream-brand { font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 22px; color: var(--paper); white-space: nowrap; }
+.stream-brand em { color: var(--brass); }
+.stream-exit { position: fixed; z-index: 45; top: calc(10px + env(safe-area-inset-top, 0px)); right: max(10px, calc(env(safe-area-inset-right, 0px) + 10px)); background: var(--ink-2); border: 1px solid var(--line); border-radius: 999px; padding: 6px 12px; font-size: 12px; color: var(--muted); cursor: pointer; opacity: .35; }
+.stream-exit:hover, .stream-exit:focus-visible { opacity: 1; }
 
 @media (prefers-reduced-motion: reduce) {
   .pc.anim { transition: none; } .sq.hint::after, .clock.low .num { animation: none; } .sweep { display: none; } .overlay .card { animation: none; }
@@ -299,6 +328,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
     <div class="opt"><label>Couleurs des pièces</label><div class="swatches four" id="sw-pcolor"></div></div>
   </div>
 
+  <button class="stream-exit" id="stream-exit" hidden>Quitter le mode streamer (Échap)</button>
   <main class="main">
     <section class="board-col">
       <div class="player" id="p-top"></div>
@@ -310,6 +340,7 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
         <div class="promo" id="promo" hidden><div class="promo-box" id="promo-box"></div></div>
       </div>
       <div class="player" id="p-bot"></div>
+      <div class="stream-foot" id="stream-foot" hidden><span id="stream-last"></span><span class="stream-brand">Trouve le <em>Coup</em></span></div>
     </section>
 
     <aside class="panel">
@@ -364,6 +395,19 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
               <button data-v="r" aria-pressed="false">Au hasard</button>
             </div>
           </div>
+          <div class="opt">
+            <label>Pendule</label>
+            <div class="pills" id="ami-tc">
+              <button data-v="none" aria-pressed="false">Sans</button>
+              <button data-v="3+2" aria-pressed="false">3 min + 2 s</button>
+              <button data-v="5+3" aria-pressed="true">5 min + 3 s</button>
+              <button data-v="10+0" aria-pressed="false">10 min</button>
+            </div>
+          </div>
+          <div class="opt">
+            <label for="ami-name">Ton pseudo</label>
+            <input class="txt" id="ami-name" maxlength="18" placeholder="Visible par ton ami et les spectateurs" autocomplete="nickname">
+          </div>
           <button class="btn primary" id="ami-create">Créer une partie</button>
           <div class="or">ou</div>
           <form class="join" id="ami-join-form">
@@ -384,15 +428,26 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
           </div>
         </div>
         <div class="box" id="ami-game" hidden>
-          <div class="conn"><span class="led" id="ami-led"></span><span id="ami-conn"></span></div>
+          <div class="conn"><span class="led" id="ami-led"></span><span id="ami-conn"></span><span class="specs" id="ami-specs"></span></div>
           <div class="status" id="ami-status"></div>
           <button class="btn" id="ami-reco" hidden>Se reconnecter</button>
-          <div class="emotes" id="ami-emotes"></div>
+          <div class="emotes player-only" id="ami-emotes"></div>
           <div class="btns">
-            <button class="btn" id="ami-draw">Proposer nulle</button>
-            <button class="btn" id="ami-resign">Abandonner</button>
-            <button class="btn full" id="ami-leave">Quitter la partie</button>
+            <button class="btn player-only" id="ami-draw">Proposer nulle</button>
+            <button class="btn player-only" id="ami-resign">Abandonner</button>
+            <button class="btn spec-only full" id="ami-flip">Retourner l'échiquier</button>
+            <button class="btn primary full" id="ami-stream">Mode streamer</button>
           </div>
+          <div class="opt player-only">
+            <label for="ami-name2">Ton pseudo</label>
+            <input class="txt" id="ami-name2" maxlength="18" placeholder="Visible par ton ami et les spectateurs" autocomplete="nickname">
+          </div>
+          <div class="opt">
+            <label>Lien spectateur</label>
+            <div class="link" id="ami-speclink"></div>
+            <button class="btn" id="ami-speccopy">Copier le lien spectateur</button>
+          </div>
+          <button class="btn" id="ami-leave">Quitter la partie</button>
         </div>
         <div class="box">
           <span class="eyebrow">Feuille de partie</span>
@@ -1015,7 +1070,7 @@ function animPairs(m, reverse) {
   }
   return reverse ? pairs.map(([a, b]) => [b, a]) : pairs;
 }
-function render(anim) { updateMarks(); renderPieces(anim); renderPlayers(); renderMoves(); }
+function render(anim) { updateMarks(); renderPieces(anim); renderPlayers(); renderMoves(); updateFoot(); }
 
 function renderPlayers() {
   const g = S.game;
@@ -1032,12 +1087,13 @@ function renderPlayers() {
     const name = c === "w" ? "Blancs" : "Noirs";
     let who = "";
     if (S.mode === "free") who = c === S.free.color ? "Toi" : "Ordinateur";
-    else if (S.mode === "ami") who = c === A.myColor ? "Toi" : "Ton ami";
+    else if (S.mode === "ami") who = nameOf(c) + (!isSpec() && A.names[c] && c === A.myColor ? " (toi)" : "");
     else who = c === S.startTurn ? "Toi" : "Adversaire";
     const adv = (c === "w" ? mat : -mat);
     const capt = S.mode !== "puzzle" ? capturedBy(c) : "";
-    return `<span><span class="dot ${c}"></span><strong>${who}</strong> <span>· ${name}</span></span>` +
-      `<span class="captured">${capt}${adv > 0 ? `<span class="adv">+${Math.round(adv / 100)}</span>` : ""}</span>`;
+    const clk = S.mode === "ami" && A.clock ? `<span class="pclock" data-c="${c}">${fmtClock(clockLeft(c))}</span>` : "";
+    return `<span class="pl"><span class="dot ${c}"></span><strong>${who}</strong> <span>· ${name}</span></span>` +
+      `<span class="pr"><span class="captured">${capt}${adv > 0 ? `<span class="adv">+${Math.round(adv / 100)}</span>` : ""}</span>${clk}</span>`;
   };
   const topC = S.flipped ? "w" : "b", botC = S.flipped ? "b" : "w";
   $("p-top").innerHTML = side(topC); $("p-bot").innerHTML = side(botC);
@@ -1456,8 +1512,26 @@ $("mode-ami").onclick = () => S.mode !== "ami" && setMode("ami");
 const PEER_URL = "https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js";
 const ID_PREFIX = "trouvelecoup-";
 const EMOTES = ["Bien joué !", "Aïe…", "Je réfléchis", "Oups", "Bonne partie !"];
-const A = { game: new Game(), sans: [], last: null, myColor: "w", pref: "w", role: null, peer: null, conn: null, code: "", started: false, over: null };
-let pendingAsk = null, lastEmote = 0;
+const TCS = { none: null, "3+2": { base: 180000, inc: 2000 }, "5+3": { base: 300000, inc: 3000 }, "10+0": { base: 600000, inc: 0 } };
+const MAX_SPECS = 20;
+const A = {
+  game: new Game(), sans: [], last: null, myColor: "w", pref: "w", tcKey: "5+3",
+  role: null, peer: null, conn: null, specs: [], code: "", started: false, over: null,
+  names: { w: "", b: "" }, clock: null, specFlip: false
+};
+let pendingAsk = null, lastEmote = 0, lastBeat = 0, myName = "";
+try { myName = localStorage.getItem("tlc-name") || ""; } catch (e) {}
+
+const isSpec = () => A.role === "spec";
+const opp = c => c === "w" ? "b" : "w";
+const cleanName = s => String(s || "").replace(/[<>&"'`]/g, "").replace(/\s+/g, " ").trim().slice(0, 18);
+function nameOf(c) {
+  if (A.names[c]) return A.names[c];
+  if (isSpec()) return c === "w" ? "Blancs" : "Noirs";
+  return c === A.myColor ? "Toi" : "Ton ami";
+}
+function specName(c) { return A.names[c] || (c === "w" ? "Les Blancs" : "Les Noirs"); }
+
 function loadPeer() {
   if (window.Peer) return Promise.resolve();
   return new Promise((res, rej) => {
@@ -1473,24 +1547,84 @@ function genCode() {
   return c;
 }
 const amiLink = code => location.origin + location.pathname + "#ami-" + code;
+const specLink = code => location.origin + location.pathname + "#voir-" + code;
 function amiView(v) { $("ami-setup").hidden = v !== "setup"; $("ami-wait").hidden = v !== "wait"; $("ami-game").hidden = v !== "game"; }
 function amiMsg(text, kind) { const f = $("ami-feedback"); f.textContent = text; f.className = "feedback" + (kind ? " " + kind : ""); f.hidden = !text; }
 function setLed(state, text) { $("ami-led").className = "led " + state; $("ami-conn").textContent = text; }
+function setRole(r) { A.role = r; $("panel-ami").dataset.role = r === "spec" ? "spec" : "player"; }
 function send(msg) { try { if (A.conn && A.conn.open) { A.conn.send(msg); return true; } } catch (e) {} return false; }
-function amiCanPlay() { return !S.locked && A.started && !A.over && !!A.conn && A.conn.open && A.game.turn === A.myColor; }
+function specSend(msg) { if (A.role !== "host") return; A.specs = A.specs.filter(s => s.open); for (const s of A.specs) { try { s.send(msg); } catch (e) {} } }
+function amiCanPlay() { return !S.locked && !isSpec() && A.started && !A.over && !!A.conn && A.conn.open && A.game.turn === A.myColor; }
 function amiDestroy() {
+  for (const s of A.specs) { try { s.close(); } catch (e) {} }
+  A.specs = [];
   try { if (A.conn) A.conn.close(); } catch (e) {}
   try { if (A.peer) A.peer.destroy(); } catch (e) {}
   A.conn = null; A.peer = null;
 }
+
+/* ---- Chess clock ---- */
+function newClock(key) { const tc = TCS[key]; return tc ? { base: tc.base, inc: tc.inc, w: tc.base, b: tc.base, since: null } : null; }
+function clockLeft(c) {
+  const k = A.clock; if (!k) return null;
+  let v = k[c];
+  if (k.since != null && !A.over && A.game.turn === c) v -= performance.now() - k.since;
+  return v;
+}
+const clockRuns = () => A.game.hist.length >= 2; // each side has made a first move
+function clockAfterMove(mover) {
+  const k = A.clock; if (!k) return;
+  const now = performance.now();
+  if (k.since != null) k[mover] = Math.max(0, k[mover] - (now - k.since)) + k.inc;
+  k.since = clockRuns() ? now : null;
+}
+function clockFreeze() {
+  const k = A.clock; if (!k || k.since == null) return;
+  const c = A.game.turn; k[c] = Math.max(0, k[c] - (performance.now() - k.since)); k.since = null;
+}
+function clockSnap() {
+  const k = A.clock; if (!k) return null;
+  return { base: k.base, inc: k.inc, w: clockLeft("w"), b: clockLeft("b"), running: k.since != null && !A.over };
+}
+function fmtClock(ms) {
+  ms = Math.max(0, ms);
+  if (ms < 10000) return (Math.floor(ms / 100) / 10).toFixed(1);
+  const s = Math.ceil(ms / 1000);
+  return Math.floor(s / 60) + ":" + String(s % 60).padStart(2, "0");
+}
+setInterval(() => {
+  if (!A.clock || !A.started) return;
+  if (S.mode === "ami") for (const c of ["w", "b"]) {
+    const el = document.querySelector(`.pclock[data-c="${c}"]`); if (!el) continue;
+    const v = clockLeft(c);
+    el.textContent = fmtClock(v);
+    el.classList.toggle("low", v < 20000);
+    el.classList.toggle("run", A.clock.since != null && !A.over && A.game.turn === c);
+  }
+  if (A.over || isSpec() || A.clock.since == null) return;
+  if (A.game.turn === A.myColor) {
+    const mine = clockLeft(A.myColor);
+    if (mine <= 0) {
+      send({ t: "flag" });
+      amiFinish(result(opp(A.myColor), "temps", "Temps écoulé. Ton ami gagne.", "Ton ami a dépassé le temps. Tu gagnes !"));
+    } else if (mine < 10000 && performance.now() - lastBeat > 1000) { lastBeat = performance.now(); SFX.beat(); }
+  } else if (clockLeft(opp(A.myColor)) < -3000 && !(A.conn && A.conn.open)) {
+    A.clock[opp(A.myColor)] = 0; A.clock.since = null;
+    amiFinish(result(A.myColor, "temps", "Ton ami a dépassé le temps. Tu gagnes !", "Temps écoulé. Ton ami gagne."));
+  }
+}, 100);
+
+/* ---- Game state ---- */
 function resetAmiGame(myColor) {
   A.game = new Game(); A.sans = []; A.last = null; A.myColor = myColor; A.over = null;
+  A.clock = A.role === "host" ? newClock(A.tcKey) : null;
   if (S.mode === "ami") enterAmiBoard();
 }
 function enterAmiBoard() {
   hideOverlay(); clearArrows(); frameEl.classList.remove("win");
   S.game = A.game; S.sans = A.sans; S.last = A.last; S.startFull = 1; S.startTurn = "w";
-  S.flipped = A.myColor === "b"; S.sel = -1; S.targets = []; S.hint = -1; S.wrong = -1;
+  S.flipped = isSpec() ? A.specFlip : A.myColor === "b";
+  S.sel = -1; S.targets = []; S.hint = -1; S.wrong = -1;
   layoutSquares(); render(); amiStatus();
   if (pendingAsk) { const p = pendingAsk; pendingAsk = null; amiAsk(...p); }
 }
@@ -1498,62 +1632,114 @@ function amiStatus() {
   const st = $("ami-status");
   if (!A.started) { st.textContent = ""; return; }
   if (A.over) { st.textContent = A.over.text; return; }
-  st.textContent = (A.game.inCheck() ? "Échec ! " : "") + (A.game.turn === A.myColor ? "À toi de jouer." : "Ton ami réfléchit…");
+  const chk = A.game.inCheck() ? "Échec ! " : "";
+  if (isSpec()) { st.textContent = chk + `Au tour de ${nameOf(A.game.turn)} (${A.game.turn === "w" ? "Blancs" : "Noirs"}).`; return; }
+  st.textContent = chk + (A.game.turn === A.myColor ? "À toi de jouer." : "Ton ami réfléchit…");
 }
 function amiError(text) {
-  if (A.started) { setLed("off", text); $("ami-reco").hidden = A.role !== "guest"; }
+  if (A.started) { setLed("off", text); $("ami-reco").hidden = A.role === "host"; }
   else { amiView("setup"); amiMsg(text, "bad"); }
 }
+function result(winner, why, mine, theirs) {
+  const me = winner == null ? "draw" : winner === A.myColor ? "win" : "loss";
+  const specText = winner == null ? `Partie nulle (${why}).`
+    : A.names[winner] ? `${A.names[winner]} gagne (${why}).` : `${specName(winner)} gagnent (${why}).`;
+  return { me, winner, why, text: mine, textOther: theirs == null ? mine : theirs, specText };
+}
+function perspective(o) {
+  if (!o) return null;
+  if (isSpec()) return Object.assign({}, o, { me: "spec", text: o.specText || o.text });
+  if (A.role === "host") return o;
+  const me = o.winner == null ? "draw" : o.winner === A.myColor ? "win" : "loss";
+  return Object.assign({}, o, { me, text: o.textOther || o.text });
+}
+function celebrate() {
+  frameEl.classList.add("win");
+  const sw = document.createElement("div"); sw.className = "sweep"; frameEl.appendChild(sw); setTimeout(() => sw.remove(), 1200);
+}
 function amiFinish(r) {
-  A.over = r; amiStatus();
-  track("ami_fin", { resultat: r.me });
+  if (A.over) return;
+  clockFreeze();
+  A.over = r; amiStatus(); renderPlayers();
+  track("ami_fin", { resultat: r.me, raison: r.why });
+  specSync();
   if (S.mode !== "ami") { toast(r.text); return; }
-  if (r.me === "win") { SFX.win(); frameEl.classList.add("win"); const sw = document.createElement("div"); sw.className = "sweep"; frameEl.appendChild(sw); setTimeout(() => sw.remove(), 1200); }
+  if (r.me === "win") { SFX.win(); celebrate(); }
   showOverlay(r.me === "win" ? "Victoire !" : r.me === "loss" ? "Défaite" : "Partie nulle", r.text, "Proposer une revanche", amiRematch);
 }
 function amiCheckEnd() {
   const s = A.game.status(); if (!s) return false;
   if (s === "mate") {
-    const iLost = A.game.turn === A.myColor;
-    amiFinish(iLost ? { me: "loss", text: "Échec et mat. Ton ami gagne.", textOther: "Échec et mat. Tu gagnes !" }
-                    : { me: "win", text: "Échec et mat. Tu gagnes !", textOther: "Échec et mat. Ton ami gagne." });
+    const loser = A.game.turn, iLost = loser === A.myColor;
+    amiFinish(result(opp(loser), "échec et mat",
+      iLost ? "Échec et mat. Ton ami gagne." : "Échec et mat. Tu gagnes !",
+      iLost ? "Échec et mat. Tu gagnes !" : "Échec et mat. Ton ami gagne."));
   } else {
-    amiFinish({ me: "draw", text: { stalemate: "Pat. Partie nulle.", fifty: "Règle des 50 coups. Partie nulle.", repetition: "Triple répétition. Partie nulle.", material: "Matériel insuffisant. Partie nulle." }[s] });
+    const t = { stalemate: ["pat", "Pat. Partie nulle."], fifty: ["50 coups", "Règle des 50 coups. Partie nulle."], repetition: ["répétition", "Triple répétition. Partie nulle."], material: ["matériel insuffisant", "Matériel insuffisant. Partie nulle."] }[s];
+    amiFinish(result(null, t[0], t[1]));
   }
   return true;
 }
 function amiLocalMove(m, dragged) {
-  const ply = A.game.hist.length;
+  const ply = A.game.hist.length, mover = A.myColor;
   applyMove(m, { noAnim: dragged }); A.last = m;
-  send({ t: "move", uci: uciOf(m), ply });
-  if (!amiCheckEnd()) amiStatus();
+  clockAfterMove(mover);
+  send({ t: "move", uci: uciOf(m), ply, rem: A.clock ? A.clock[mover] : null });
+  if (!amiCheckEnd()) { amiStatus(); specSync(); }
 }
-function amiRemoteMove(uci, ply) {
+function amiRemoteMove(uci, ply, rem) {
   if (ply !== A.game.hist.length) { send({ t: "sync?" }); return; }
   const m = A.game.findUci(uci);
   if (!m) { send({ t: "sync?" }); return; }
+  const mover = A.game.turn;
   if (S.mode === "ami") { applyMove(m); A.last = m; }
   else { const san = A.game.san(m); A.game.play(m); A.sans.push(san); A.last = m; moveSound(A.game, m); toast(`Ton ami a joué ${san}.`); }
-  if (!amiCheckEnd()) amiStatus();
+  if (A.clock) { if (typeof rem === "number" && rem >= 0) A.clock[mover] = rem; A.clock.since = clockRuns() ? performance.now() : null; }
+  if (!amiCheckEnd()) { amiStatus(); specSync(); }
 }
-const stateMsg = () => ({ t: "state", moves: A.game.hist.map(h => uciOf(h.m)), guestColor: A.myColor === "w" ? "b" : "w", over: A.over });
+function stateMsg(spec) {
+  return { t: "state", spec: !!spec, moves: A.game.hist.map(h => uciOf(h.m)), guestColor: opp(A.myColor),
+    over: A.over, names: A.names, clock: clockSnap() };
+}
+function specSync() { if (A.role === "host") specSend(stateMsg(true)); }
 function applyState(msg) {
-  A.myColor = msg.guestColor === "b" ? "b" : "w";
-  A.game = new Game(); A.sans = []; A.last = null;
-  for (const u of (msg.moves || [])) { const m = A.game.findUci(u); if (!m) break; A.sans.push(A.game.san(m)); A.game.play(m); A.last = m; }
-  const o = msg.over;
-  A.over = !o ? null : o.me === "draw" ? o : { me: o.me === "win" ? "loss" : "win", text: o.textOther || o.text };
-  A.started = true;
-  amiView("game"); setLed("on", "Connecté à ton ami"); $("ami-reco").hidden = true;
-  if (S.mode === "ami") enterAmiBoard(); else amiStatus();
+  const spec = isSpec();
+  if (!spec) A.myColor = msg.guestColor === "b" ? "b" : "w";
+  const moves = Array.isArray(msg.moves) ? msg.moves : [];
+  const cur = A.game.hist.map(h => uciOf(h.m));
+  const step = A.started && moves.length === cur.length + 1 && cur.every((u, i) => u === moves[i]);
+  const same = A.started && moves.length === cur.length && cur.every((u, i) => u === moves[i]);
+  A.names = { w: cleanName(msg.names && msg.names.w), b: cleanName(msg.names && msg.names.b) };
+  const k = msg.clock;
+  A.clock = k ? { base: k.base, inc: k.inc, w: k.w, b: k.b, since: k.running ? performance.now() : null } : null;
+  const wasOver = !!A.over;
+  A.over = perspective(msg.over);
+  const fresh = !A.started; A.started = true;
+  amiView("game"); setLed("on", spec ? "Tu regardes la partie en direct" : "Connecté à ton ami"); $("ami-reco").hidden = true;
+  if (step) {
+    const m = A.game.findUci(moves[moves.length - 1]);
+    if (m && S.mode === "ami") { applyMove(m); A.last = m; amiStatus(); }
+    else if (m) { const san = A.game.san(m); A.game.play(m); A.sans.push(san); A.last = m; }
+  } else if (!same) {
+    A.game = new Game(); A.sans = []; A.last = null;
+    for (const u of moves) { const m = A.game.findUci(u); if (!m) break; A.sans.push(A.game.san(m)); A.game.play(m); A.last = m; }
+    if (S.mode === "ami") enterAmiBoard();
+  }
+  if (S.mode === "ami") { renderPlayers(); amiStatus(); }
+  if (fresh && S.mode === "ami") enterAmiBoard();
+  if (A.over && !wasOver && !fresh && S.mode === "ami") {
+    if (spec) { celebrate(); SFX.win(); showOverlay("Fin de partie", A.over.text, "Fermer", () => {}); }
+  }
+  if (!A.over && wasOver && S.mode === "ami") enterAmiBoard();
 }
 function hostRematch() {
-  resetAmiGame(A.myColor === "w" ? "b" : "w");
-  send(stateMsg()); amiStatus(); SFX.start();
+  A.names = { w: A.names.b, b: A.names.w };
+  resetAmiGame(opp(A.myColor));
+  send(stateMsg()); specSync(); amiStatus(); SFX.start();
   toast("Revanche ! Les couleurs sont inversées.");
 }
 function amiRematch() {
-  if (!A.over) return;
+  if (!A.over || isSpec()) return;
   toast(send({ t: "rematch?" }) ? "Demande de revanche envoyée." : "Ton ami n'est plus connecté.");
 }
 function amiAsk(text, yes, no) {
@@ -1564,41 +1750,68 @@ function amiAsk(text, yes, no) {
   $("ask-yes").onclick = () => { hideOverlay(); yes(); };
   $("ask-no").onclick = () => { hideOverlay(); no(); };
 }
-function bubble(text, mine) {
-  if (S.mode !== "ami") { if (!mine) toast("Ton ami : " + text); return; }
-  const el = $(mine ? "p-bot" : "p-top");
+function bubble(text, color) {
+  const mine = !isSpec() && color === A.myColor;
+  if (S.mode !== "ami") { if (!mine) toast(`${nameOf(color)} : ${text}`); return; }
+  const top = S.flipped ? "w" : "b";
+  const el = $(color === top ? "p-top" : "p-bot");
   const b = document.createElement("span"); b.className = "bubble"; b.textContent = text;
   el.appendChild(b); setTimeout(() => b.remove(), 2600);
   if (!mine) SFX.tick();
 }
-const drawAgreed = () => ({ me: "draw", text: "Nulle d'un commun accord." });
+function updateSpecCount() {
+  const n = A.role === "host" ? A.specs.filter(s => s.open).length : (A.specCount || 0);
+  $("ami-specs").textContent = n ? `${n} spectateur${n > 1 ? "s" : ""}` : "";
+  if (A.role === "host") send({ t: "specs", n });
+}
+
+/* ---- Messages ---- */
 function amiData(msg) {
-  if (!msg || typeof msg !== "object") return;
+  const host = A.role === "host", other = opp(A.myColor);
   switch (msg.t) {
-    case "hello": case "sync?": if (A.role === "host") send(stateMsg()); break;
+    case "sync?": if (host) send(stateMsg()); break;
     case "state":
-      if (A.role === "guest") { const fresh = !A.started; applyState(msg); if (fresh) { SFX.start(); toast("Connecté ! La partie commence."); track("ami_rejoint"); } }
+      if (!host) { const fresh = !A.started; applyState(msg); if (fresh) { SFX.start(); toast(isSpec() ? "Tu regardes la partie en direct." : "Connecté ! La partie commence."); track(isSpec() ? "ami_spectateur" : "ami_rejoint"); } }
       break;
-    case "move": if (typeof msg.uci === "string" && Number.isInteger(msg.ply)) amiRemoteMove(msg.uci, msg.ply); break;
-    case "resign": if (!A.over) amiFinish({ me: "win", text: "Ton ami a abandonné. Tu gagnes !", textOther: "Tu as abandonné." }); break;
+    case "move": if (!isSpec() && typeof msg.uci === "string" && Number.isInteger(msg.ply)) amiRemoteMove(msg.uci, msg.ply, msg.rem); break;
+    case "name": if (host) { A.names[other] = cleanName(msg.name); if (S.mode === "ami") { renderPlayers(); amiStatus(); } specSync(); } break;
+    case "names": if (!host && !isSpec() && msg.names) { A.names = { w: cleanName(msg.names.w), b: cleanName(msg.names.b) }; if (S.mode === "ami") { renderPlayers(); amiStatus(); } } break;
+    case "specs": if (!host) { A.specCount = +msg.n || 0; updateSpecCount(); } break;
+    case "emote":
+      if (!EMOTES[msg.i]) break;
+      if (host) { bubble(EMOTES[msg.i], other); specSend({ t: "emote", i: msg.i, c: other }); }
+      else bubble(EMOTES[msg.i], isSpec() ? (msg.c === "b" ? "b" : "w") : other);
+      break;
+    case "flag": if (!A.over && A.clock) { A.clock[other] = 0; A.clock.since = null; }
+      if (!A.over) amiFinish(result(A.myColor, "temps", "Ton ami a dépassé le temps. Tu gagnes !", "Temps écoulé. Ton ami gagne.")); break;
+    case "resign": if (!A.over) amiFinish(result(A.myColor, "abandon", "Ton ami a abandonné. Tu gagnes !", "Tu as abandonné.")); break;
     case "draw?": if (!A.over) amiAsk("Ton ami propose la nulle.", () => { send({ t: "draw!" }); amiFinish(drawAgreed()); }, () => send({ t: "draw-no" })); break;
     case "draw!": if (!A.over) amiFinish(drawAgreed()); break;
     case "draw-no": toast("Ton ami refuse la nulle."); break;
-    case "rematch?": amiAsk("Ton ami propose une revanche.", () => { send({ t: "rematch!" }); if (A.role === "host") hostRematch(); }, () => send({ t: "rematch-no" })); break;
-    case "rematch!": if (A.role === "host") hostRematch(); break;
+    case "rematch?": amiAsk("Ton ami propose une revanche.", () => { send({ t: "rematch!" }); if (host) hostRematch(); }, () => send({ t: "rematch-no" })); break;
+    case "rematch!": if (host) hostRematch(); break;
     case "rematch-no": toast("Ton ami ne veut pas de revanche."); break;
-    case "emote": if (EMOTES[msg.i]) bubble(EMOTES[msg.i], false); break;
     case "bye":
       setLed("off", "Ton ami a quitté la partie.");
-      if (A.started && !A.over) amiFinish({ me: "win", text: "Ton ami a quitté la partie.", textOther: "Tu as quitté la partie." });
+      if (A.started && !A.over) amiFinish(result(A.myColor, "départ", "Ton ami a quitté la partie.", "Tu as quitté la partie."));
       break;
-    case "full": amiDestroy(); amiError("Cette partie a déjà deux joueurs."); break;
+    case "full": amiDestroy(); A.started = false; amiError(msg.spec ? "Il y a déjà trop de spectateurs sur cette partie." : "Cette partie a déjà deux joueurs."); break;
   }
 }
+const drawAgreed = () => result(null, "accord", "Nulle d'un commun accord.");
+function onConnData(c, d) {
+  if (!d || typeof d !== "object") return;
+  if (d.t === "ping") { try { c.send({ t: "pong" }); } catch (e) {} return; }
+  if (d.t === "pong") { if (c.__pong) c.__pong(); return; }
+  if (A.role === "host" && d.t === "hello") { hostHello(c, d); return; }
+  if (A.conn === c) amiData(d);
+}
+
+/* ---- Host side ---- */
 function peerErr(e) {
   const t = e && e.type;
   if (t === "browser-incompatible") return "Ce navigateur ne permet pas le jeu en ligne. Essaie Chrome, Firefox ou Safari à jour.";
-  if (t === "peer-unavailable") return A.started ? "Ton ami n'est plus connecté." : "Partie introuvable. Vérifie le code, ou demande un nouveau lien à ton ami.";
+  if (t === "peer-unavailable") return A.started ? "La partie n'est plus disponible." : "Partie introuvable. Vérifie le code, ou demande un nouveau lien.";
   if (["network", "server-error", "socket-error", "socket-closed"].includes(t)) return "Impossible de joindre le serveur de mise en relation. Vérifie ta connexion et réessaie.";
   return "La connexion a échoué. Réessaie dans un instant.";
 }
@@ -1611,68 +1824,74 @@ async function startPeer(id) {
 }
 async function amiCreate() {
   amiMsg("Création de la partie…", "info");
-  A.role = "host"; A.code = genCode(); A.started = false; A.over = null;
+  setRole("host"); A.code = genCode(); A.started = false; A.over = null; A.names = { w: "", b: "" };
   const peer = await startPeer(ID_PREFIX + A.code); if (!peer) return;
   A.peer = peer;
   peer.on("open", () => {
     amiMsg(""); $("ami-code-big").textContent = A.code; $("ami-link").textContent = amiLink(A.code);
-    amiView("wait"); track("ami_creee");
+    $("ami-speclink").textContent = specLink(A.code);
+    amiView("wait"); track("ami_creee", { pendule: A.tcKey });
   });
   peer.on("connection", hostAttach);
   peer.on("disconnected", () => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} });
   peer.on("error", e => { if (e.type === "unavailable-id") { amiCreate(); return; } if (e.type !== "peer-unavailable") amiError(peerErr(e)); });
 }
-function onConnData(c, d) {
-  if (!d || typeof d !== "object") return;
-  if (d.t === "ping") { try { c.send({ t: "pong" }); } catch (e) {} return; }
-  if (d.t === "pong") { if (c.__pong) c.__pong(); return; }
-  if (A.conn === c) amiData(d);
+function hostAttach(c) {
+  c.on("data", d => onConnData(c, d));
+  c.on("close", () => {
+    if (A.conn === c) setLed("off", "Ton ami s'est déconnecté. Il peut revenir avec le même lien.");
+    const i = A.specs.indexOf(c); if (i >= 0) { A.specs.splice(i, 1); updateSpecCount(); }
+  });
+  c.on("error", () => {});
 }
-function onHostOpen(c) {
-  if (A.conn !== c) return;
+function hostHello(c, d) {
+  if (d.role === "spec") {
+    A.specs = A.specs.filter(s => s.open);
+    if (A.specs.length >= MAX_SPECS) { try { c.send({ t: "full", spec: true }); } catch (e) {} return; }
+    if (!A.specs.includes(c)) A.specs.push(c);
+    try { c.send(stateMsg(true)); } catch (e) {}
+    updateSpecCount(); return;
+  }
+  if (A.conn && A.conn !== c && A.conn.open) {
+    // A player seat is taken: keep the current player if they still answer, else the newcomer (usually the same friend after a reload) takes the seat.
+    const old = A.conn; let alive = false;
+    old.__pong = () => { alive = true; };
+    try { old.send({ t: "ping" }); } catch (e) {}
+    setTimeout(() => {
+      if (alive && old.open) { try { c.send({ t: "full" }); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 800); }
+      else { A.conn = c; try { old.close(); } catch (e) {} seatGuest(c, d); }
+    }, 2500);
+    return;
+  }
+  seatGuest(c, d);
+}
+function seatGuest(c, d) {
+  A.conn = c;
   if (!A.started) {
     A.started = true;
     resetAmiGame(A.pref === "r" ? (Math.random() < .5 ? "w" : "b") : A.pref);
     SFX.start(); toast("Ton ami est arrivé. La partie commence !");
   }
-  setLed("on", "Connecté à ton ami"); amiView("game"); amiStatus();
-  send(stateMsg());
+  A.names[A.myColor] = myName;
+  A.names[opp(A.myColor)] = cleanName(d.name);
+  setLed("on", "Connecté à ton ami"); amiView("game");
+  if (S.mode === "ami") { renderPlayers(); amiStatus(); }
+  send(stateMsg()); specSync(); updateSpecCount();
 }
-function hostAttach(c) {
-  c.on("data", d => onConnData(c, d));
-  c.on("close", () => { if (A.conn === c) setLed("off", "Ton ami s'est déconnecté. Il peut revenir avec le même lien."); });
-  c.on("error", () => {});
-  if (A.conn && A.conn.open && A.conn !== c) {
-    // Someone else knocks while a link is up: keep the current player if they still answer, else let the newcomer (usually the same friend after a reload) take the seat.
-    const old = A.conn; let alive = false;
-    old.__pong = () => { alive = true; };
-    try { old.send({ t: "ping" }); } catch (e) {}
-    setTimeout(() => {
-      if (alive && old.open) {
-        const reject = () => { try { c.send({ t: "full" }); } catch (e) {} setTimeout(() => { try { c.close(); } catch (e) {} }, 800); };
-        if (c.open) reject(); else c.on("open", reject);
-      } else {
-        A.conn = c; try { old.close(); } catch (e) {}
-        if (c.open) onHostOpen(c); else c.on("open", () => onHostOpen(c));
-      }
-    }, 2500);
-    return;
-  }
-  A.conn = c;
-  c.on("open", () => onHostOpen(c));
-}
-window.addEventListener("pagehide", () => { try { if (A.conn) A.conn.close(); } catch (e) {} });
-async function amiJoin(raw) {
+
+/* ---- Guest / spectator side ---- */
+async function amiJoin(raw, asSpec) {
   const code = String(raw || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 6);
   if (code.length !== 6) { amiMsg("Le code de la partie fait 6 caractères.", "bad"); return; }
-  amiMsg(`Connexion à la partie ${code}…`, "info");
-  A.role = "guest"; A.code = code; A.started = false; A.over = null;
+  amiMsg(asSpec ? `Connexion à la partie ${code} en spectateur…` : `Connexion à la partie ${code}…`, "info");
+  setRole(asSpec ? "spec" : "guest"); A.code = code; A.started = false; A.over = null;
+  $("ami-speclink").textContent = specLink(code);
   const peer = await startPeer(); if (!peer) return;
   A.peer = peer;
   peer.on("open", guestConnect);
   peer.on("disconnected", () => { try { if (!peer.destroyed) peer.reconnect(); } catch (e) {} });
   peer.on("error", e => amiError(peerErr(e)));
-  try { history.replaceState(null, "", "#ami-" + code); } catch (e) {}
+  try { history.replaceState(null, "", (asSpec ? "#voir-" : "#ami-") + code); } catch (e) {}
 }
 function guestConnect() {
   if (!A.peer) return;
@@ -1680,42 +1899,75 @@ function guestConnect() {
   A.conn = c;
   if (A.started) setLed("wait", "Reconnexion…");
   const timer = setTimeout(() => { if (!c.open) amiError("La connexion ne s'établit pas. Ton réseau bloque peut-être le jeu en ligne : essaie un autre réseau, ou la 4G."); }, 15000);
-  c.on("open", () => { clearTimeout(timer); amiMsg(""); send({ t: "hello" }); });
+  c.on("open", () => { clearTimeout(timer); amiMsg(""); send({ t: "hello", role: isSpec() ? "spec" : "player", name: myName }); });
   c.on("data", d => onConnData(c, d));
-  c.on("close", () => { if (A.conn === c) { setLed("off", "Connexion perdue."); $("ami-reco").hidden = false; } });
+  c.on("close", () => { if (A.conn === c) { setLed("off", isSpec() ? "La diffusion est coupée." : "Connexion perdue."); $("ami-reco").hidden = false; } });
   c.on("error", () => {});
 }
 function amiLeave() {
-  send({ t: "bye" });
+  if (!isSpec()) send({ t: "bye" });
   setTimeout(() => {
-    amiDestroy(); A.started = false; A.role = null;
-    resetAmiGame("w"); amiView("setup"); amiMsg("");
+    amiDestroy(); A.started = false; setRole(null);
+    resetAmiGame("w"); A.names = { w: "", b: "" }; A.clock = null; amiView("setup"); amiMsg("");
+    if (S.mode === "ami") enterAmiBoard();
     try { history.replaceState(null, "", location.pathname + location.search); } catch (e) {}
   }, 200);
 }
-$("ami-color").addEventListener("click", e => {
-  const b = e.target.closest("button"); if (!b) return;
-  $("ami-color").querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
-  A.pref = b.dataset.v;
-});
+function setName(v) {
+  myName = cleanName(v);
+  try { localStorage.setItem("tlc-name", myName); } catch (e) {}
+  for (const id of ["ami-name", "ami-name2"]) if ($(id).value !== myName) $(id).value = myName;
+  if (!A.started || isSpec()) return;
+  A.names[A.myColor] = myName;
+  if (A.role === "host") { send({ t: "names", names: A.names }); specSync(); }
+  else send({ t: "name", name: myName });
+  if (S.mode === "ami") { renderPlayers(); amiStatus(); }
+}
+
+/* ---- Streamer mode ---- */
+function setStream(on) {
+  document.body.classList.toggle("stream", on);
+  $("stream-foot").hidden = !on; $("stream-exit").hidden = !on;
+  if (on) toggleSheet(false);
+  sizeVar(); updateFoot();
+  if (on) track("mode_streamer");
+}
+function updateFoot() {
+  const el = $("stream-last"); if (!el) return;
+  if (!S.sans.length) { el.textContent = "Début de partie"; return; }
+  const i = S.sans.length - 1 + (S.startTurn === "b" ? 1 : 0);
+  el.textContent = `Dernier coup : ${S.startFull + Math.floor(i / 2)}.${i % 2 ? ".." : ""} ${S.sans[S.sans.length - 1]}`;
+}
+
+/* ---- Wiring ---- */
+$("panel-ami").dataset.role = "player";
+for (const id of ["ami-name", "ami-name2"]) { $(id).value = myName; $(id).addEventListener("change", e => setName(e.target.value)); }
+function pillGroup(id, fn) {
+  $(id).addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    $(id).querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", String(x === b)));
+    fn(b.dataset.v);
+  });
+}
+pillGroup("ami-color", v => { A.pref = v; });
+pillGroup("ami-tc", v => { A.tcKey = v; });
 $("ami-create").onclick = amiCreate;
 $("ami-join-form").addEventListener("submit", e => { e.preventDefault(); amiJoin($("ami-code").value); });
-$("ami-cancel").onclick = () => { amiDestroy(); A.role = null; amiView("setup"); };
-$("ami-copy").onclick = () => {
-  const url = amiLink(A.code);
-  try { navigator.clipboard.writeText(url).then(() => toast("Lien copié. Envoie-le à ton ami."), () => toast(url)); } catch (e) { toast(url); }
-};
+$("ami-cancel").onclick = () => { amiDestroy(); setRole(null); amiView("setup"); };
+function copyText(text, okMsg) { try { navigator.clipboard.writeText(text).then(() => toast(okMsg), () => toast(text)); } catch (e) { toast(text); } }
+$("ami-copy").onclick = () => copyText(amiLink(A.code), "Lien copié. Envoie-le à ton ami.");
+$("ami-speccopy").onclick = () => copyText(specLink(A.code), "Lien spectateur copié.");
 $("ami-share").onclick = () => {
   const url = amiLink(A.code);
   if (navigator.share) navigator.share({ title: "Trouve le Coup", text: "Viens jouer aux échecs contre moi !", url }).catch(() => {});
   else $("ami-copy").onclick();
 };
-$("ami-reco").onclick = () => { $("ami-reco").hidden = true; if (A.peer && !A.peer.destroyed) guestConnect(); else amiJoin(A.code); };
+$("ami-reco").onclick = () => { $("ami-reco").hidden = true; if (A.peer && !A.peer.destroyed) guestConnect(); else amiJoin(A.code, isSpec()); };
 $("ami-emotes").innerHTML = EMOTES.map((t, i) => `<button data-i="${i}">${t}</button>`).join("");
 $("ami-emotes").addEventListener("click", e => {
   const b = e.target.closest("button"); if (!b || Date.now() - lastEmote < 1200) return;
-  lastEmote = Date.now();
-  if (send({ t: "emote", i: +b.dataset.i })) bubble(EMOTES[+b.dataset.i], true);
+  lastEmote = Date.now(); const i = +b.dataset.i;
+  if (send({ t: "emote", i })) { bubble(EMOTES[i], A.myColor); specSend({ t: "emote", i, c: A.myColor }); }
 });
 $("ami-draw").onclick = () => { if (A.over || !A.started) return; toast(send({ t: "draw?" }) ? "Proposition de nulle envoyée." : "Ton ami n'est pas connecté."); };
 let resignArmed = null;
@@ -1725,9 +1977,14 @@ $("ami-resign").onclick = () => {
   if (!resignArmed) { b.textContent = "Confirmer l'abandon"; b.classList.add("danger"); resignArmed = setTimeout(() => { resignArmed = null; b.textContent = "Abandonner"; b.classList.remove("danger"); }, 3000); return; }
   clearTimeout(resignArmed); resignArmed = null; b.textContent = "Abandonner"; b.classList.remove("danger");
   send({ t: "resign" });
-  amiFinish({ me: "loss", text: "Tu as abandonné.", textOther: "Ton ami a abandonné. Tu gagnes !" });
+  amiFinish(result(opp(A.myColor), "abandon", "Tu as abandonné.", "Ton ami a abandonné. Tu gagnes !"));
 };
 $("ami-leave").onclick = amiLeave;
+$("ami-flip").onclick = () => { A.specFlip = !A.specFlip; if (S.mode === "ami") enterAmiBoard(); };
+$("ami-stream").onclick = () => setStream(true);
+$("stream-exit").onclick = () => setStream(false);
+document.addEventListener("keydown", e => { if (e.key === "Escape" && document.body.classList.contains("stream")) setStream(false); });
+window.addEventListener("pagehide", () => { try { if (A.conn) A.conn.close(); } catch (e) {} });
 
 const SPK_ON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg>';
 const SPK_OFF = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M11 5 6 9H2v6h4l5 4z"/><path d="m22 9-6 6"/><path d="m16 9 6 6"/></svg>';
@@ -1770,8 +2027,8 @@ document.body.dataset.board = look.board; document.body.dataset.pcolor = look.pc
 /* ================= Boot (with live-update state keeping) ================= */
 function start(data) {
   data = data || {};
-  const hm = /^#ami-([A-Za-z0-9]{6})$/.exec(location.hash);
-  if (hm) { setMode("ami"); amiJoin(hm[1]); return; }
+  const hm = /^#(ami|voir)-([A-Za-z0-9]{6})$/.exec(location.hash);
+  if (hm) { setMode("ami"); amiJoin(hm[2], hm[1] === "voir"); return; }
   if (data.mode === "free") {
     S.free.color = data.color || "w"; S.free.level = data.level || 2;
     document.querySelectorAll("#pick-color button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.v === S.free.color)));
