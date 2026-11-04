@@ -267,14 +267,10 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 .view-btn { font-family: var(--f-mono); font-weight: 500; font-size: 13px; letter-spacing: .02em; }
 .view-btn[aria-pressed="true"] { background: var(--brass); color: #1b1408; border-color: var(--brass); }
 .view-btn[aria-busy="true"] { animation: pulse 1s infinite; }
-body.v3 .frame, body.v3 .player { max-width: min(880px, 100vh); }
-body.v3 .frame { aspect-ratio: 5 / 4; }
-body.stream.v3 .frame { aspect-ratio: 5 / 4; width: min(calc(100vw - 32px), calc((100vh - 250px) * 1.25)); }
-body.stream.v3 .player, body.stream.v3 .stream-foot { width: min(calc(100vw - 32px), calc((100vh - 250px) * 1.25)); }
+body.v3 .frame, body.v3 .player { max-width: min(760px, 82vh); }
 .frame.three { padding: 0; background: #141b24; }
 .frame.three .board, .frame.three .pieces, .frame.three .arrows { visibility: hidden; }
-.three-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 6px; z-index: 3; touch-action: none; cursor: grab; }
-.three-canvas:active { cursor: grabbing; }
+.three-canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; border-radius: 6px; z-index: 3; touch-action: manipulation; cursor: pointer; }
 .waiting { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--paper); }
 #panel-ami[data-role="spec"] .player-only { display: none !important; }
 #panel-ami:not([data-role="spec"]) .spec-only { display: none !important; }
@@ -2050,7 +2046,8 @@ const P3D = {
 const V3 = (() => {
   let T = null, on = false, ready = false, renderer, scene, camera, canvas, boardMesh, frameMesh, table;
   let pieceMat = {}, proto = {}, meshes = [], markGroup, labelGroup, envTex;
-  const cam = { th: 0, ph: .72, r: 13.6, thGoal: 0 };
+  const cam = { th: 0, ph: .32, r: 15.4 };
+  let raf = 0;
   let lastFlip = null, ro = null;
   const sqPos = sq => new T.Vector3((sq & 7) - 3.5, 0, 3.5 - (sq >> 3));
 
@@ -2175,7 +2172,7 @@ const V3 = (() => {
     canvas.setAttribute("aria-label", "Échiquier en 3D. Clique une pièce puis une case pour jouer.");
     frameEl.appendChild(canvas);
     renderer = new T.WebGLRenderer({ canvas, antialias: true, alpha: false });
-    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 2));
+    renderer.setPixelRatio(Math.min(devicePixelRatio || 1, 1.75));
     renderer.shadowMap.enabled = true; renderer.shadowMap.type = T.PCFSoftShadowMap;
     renderer.toneMapping = T.ACESFilmicToneMapping; renderer.toneMappingExposure = 1.05;
     scene = new T.Scene();
@@ -2191,7 +2188,7 @@ const V3 = (() => {
     const pm = new T.PMREMGenerator(renderer); envTex = pm.fromScene(envScene, .04).texture; scene.environment = envTex;
     scene.add(new T.HemisphereLight(0xfff4e0, 0x1a2230, .55));
     const sun = new T.DirectionalLight(0xfff0d8, 2.4); sun.position.set(-5, 11, 6); sun.castShadow = true;
-    sun.shadow.mapSize.set(2048, 2048); Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 30 });
+    sun.shadow.mapSize.set(1024, 1024); sun.shadow.radius = 3; Object.assign(sun.shadow.camera, { left: -7, right: 7, top: 7, bottom: -7, near: 1, far: 30 });
     sun.shadow.bias = -.0004; sun.shadow.normalBias = .02; scene.add(sun);
     table = new T.Mesh(new T.CircleGeometry(30, 64), new T.MeshStandardMaterial({ color: 0x141b24, roughness: .9 }));
     table.rotation.x = -Math.PI / 2; table.position.y = -.32; table.receiveShadow = true; scene.add(table);
@@ -2231,19 +2228,21 @@ const V3 = (() => {
     showLabels();
     makeMats();
     for (const m of meshes) { const p = m.userData.piece; m.traverse(x => { if (x.isMesh) x.material = x.userData.dark ? pieceMat[colorOf(p) + "d"] : pieceMat[colorOf(p)]; }); }
+    requestRender();
   }
   function showLabels() { if (labelGroup) for (const g of labelGroup.children) g.visible = (g.userData.side < 0) === !!S.flipped; }
   function resize() {
     if (!renderer) return;
     const w = frameEl.clientWidth, h = frameEl.clientHeight; if (!w || !h) return;
     renderer.setSize(w, h, false); camera.aspect = w / h; camera.updateProjectionMatrix();
+    requestRender();
   }
 
   /* ---- Pieces sync & animation ---- */
   function sync(anim) {
     if (!ready || !on) return;
     const g = S.game, now = performance.now();
-    if (lastFlip !== S.flipped) { cam.thGoal = S.flipped ? Math.PI : 0; if (lastFlip === null) cam.th = cam.thGoal; lastFlip = S.flipped; showLabels(); }
+    if (lastFlip !== S.flipped) { cam.th = S.flipped ? Math.PI : 0; lastFlip = S.flipped; showLabels(); }
     const bySq = new Map(); for (const m of meshes) if (!m.userData.dying) bySq.set(m.userData.sq, m);
     const moved = new Map();
     if (anim) for (const [from, to] of anim) { const m = bySq.get(from); if (m) { bySq.delete(from); moved.set(to, m); } }
@@ -2263,6 +2262,7 @@ const V3 = (() => {
     }
     for (const [sq, m] of bySq) if (!g.b[sq]) { kill(m, now); }
     marks();
+    requestRender();
   }
   function kill(m, now) { if (!m.userData.dying) { m.userData.dying = now; m.userData.tw = null; } }
   function hl(sq, color, opacity, kind) {
@@ -2283,15 +2283,24 @@ const V3 = (() => {
     if (g.inCheck()) hl(g.king(g.turn), 0xe4573f, .6);
     if (S.hint >= 0) hl(S.hint, 0xffcf5a, .75, "ring").userData.pulse = true;
     if (S.wrong >= 0) hl(S.wrong, 0xe4573f, .55).userData.fade = performance.now();
+    requestRender();
   }
-  function loop(now) {
-    // camera
-    cam.th += (cam.thGoal - cam.th) * .08;
+  function requestRender() { if (on && ready && !raf) raf = requestAnimationFrame(frame); }
+  function frame(now) {
+    raf = 0;
+    const busy = step(now);
+    renderer.render(scene, camera);
+    if (busy) requestRender();
+  }
+  // Advance animations; returns true while something still moves (the scene is redrawn only then).
+  function step(now) {
+    let busy = false;
     const r = cam.r, ph = cam.ph;
     camera.position.set(Math.sin(cam.th) * Math.sin(ph) * r, Math.cos(ph) * r, Math.cos(cam.th) * Math.sin(ph) * r);
-    camera.lookAt(0, -.55, 0);
+    camera.up.set(0, 1, 0); camera.lookAt(0, 0, .1 * Math.cos(cam.th));
     for (let i = meshes.length - 1; i >= 0; i--) {
       const m = meshes[i], u = m.userData;
+      if (u.tw || u.grow || u.dying) busy = true;
       if (u.tw) {
         const k = Math.min(1, (now - u.tw.t0) / u.tw.d), e = k < .5 ? 2 * k * k : 1 - Math.pow(-2 * k + 2, 2) / 2;
         m.position.lerpVectors(u.tw.a, u.tw.b, e); m.position.y = Math.sin(Math.PI * k) * u.tw.hop;
@@ -2305,10 +2314,10 @@ const V3 = (() => {
       }
     }
     for (const h of markGroup.children) {
-      if (h.userData.pulse) h.material.opacity = .45 + .4 * Math.sin(now / 160);
-      if (h.userData.fade) h.material.opacity = Math.max(0, .55 * (1 - (now - h.userData.fade) / 1000));
+      if (h.userData.pulse) { h.material.opacity = .45 + .4 * Math.sin(now / 160); busy = true; }
+      if (h.userData.fade) { const k = (now - h.userData.fade) / 1000; h.material.opacity = Math.max(0, .55 * (1 - k)); if (k < 1) busy = true; }
     }
-    renderer.render(scene, camera);
+    return busy;
   }
 
   /* ---- Input: click a piece then a square; drag to turn around the board ---- */
@@ -2324,38 +2333,17 @@ const V3 = (() => {
     return f < 0 || f > 7 || rk < 0 || rk > 7 ? -1 : rk * 8 + f;
   }
   function bindInput() {
-    const pts = new Map(); let down = null, pinch0 = 0;
-    canvas.addEventListener("pointerdown", e => {
-      ac(); canvas.setPointerCapture(e.pointerId);
-      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size === 1) down = { x: e.clientX, y: e.clientY, th: cam.thGoal, ph: cam.ph, moved: false };
-      if (pts.size === 2) { const [a, b] = [...pts.values()]; pinch0 = Math.hypot(a.x - b.x, a.y - b.y); down = { ...down, r: cam.r, moved: true }; }
-    });
-    canvas.addEventListener("pointermove", e => {
-      if (!pts.has(e.pointerId)) return;
-      pts.set(e.pointerId, { x: e.clientX, y: e.clientY });
-      if (pts.size === 2 && pinch0) { const [a, b] = [...pts.values()]; cam.r = Math.max(9, Math.min(21, down.r * pinch0 / Math.hypot(a.x - b.x, a.y - b.y))); return; }
-      if (!down) return;
-      const dx = e.clientX - down.x, dy = e.clientY - down.y;
-      if (!down.moved && Math.hypot(dx, dy) < 6) return;
-      down.moved = true;
-      cam.thGoal = down.th - dx * .008; cam.th = cam.thGoal;
-      cam.ph = Math.max(.18, Math.min(1.25, down.ph - dy * .006));
-    });
-    const up = e => {
-      if (!pts.has(e.pointerId)) return;
-      pts.delete(e.pointerId);
-      if (pts.size) return;
-      const d = down; down = null; pinch0 = 0;
-      if (!d || d.moved || e.type === "pointercancel") return;
+    let down = null;
+    canvas.addEventListener("pointerdown", e => { ac(); down = { x: e.clientX, y: e.clientY }; });
+    canvas.addEventListener("pointerup", e => {
+      const d = down; down = null;
+      if (!d || Math.hypot(e.clientX - d.x, e.clientY - d.y) > 10) return;
       const sq = pick(e.clientX, e.clientY); if (sq < 0 || !canMoveNow()) return;
       if (S.sel >= 0 && S.targets.some(m => m.to === sq)) { tryMove(S.sel, sq); return; }
       const p = S.game.b[sq];
       if (p && colorOf(p) === S.game.turn) select(S.sel === sq ? -1 : sq); else select(-1);
-    };
-    canvas.addEventListener("pointerup", up); canvas.addEventListener("pointercancel", up);
-    canvas.addEventListener("wheel", e => { e.preventDefault(); cam.r = Math.max(9, Math.min(21, cam.r * (1 + Math.sign(e.deltaY) * .08))); }, { passive: false });
-    canvas.addEventListener("dblclick", () => { cam.ph = .72; cam.r = 13.6; cam.thGoal = S.flipped ? Math.PI : 0; });
+    });
+    canvas.addEventListener("pointercancel", () => { down = null; });
   }
 
   async function enable() {
@@ -2370,12 +2358,12 @@ const V3 = (() => {
     lastFlip = null; resize();
     for (const m of meshes) scene.remove(m); meshes = [];
     sync(null);
-    renderer.setAnimationLoop(loop);
+    requestRender();
     return true;
   }
   function disable() {
     on = false; frameEl.classList.remove("three"); document.body.classList.remove("v3");
-    if (renderer) renderer.setAnimationLoop(null);
+    if (raf) { cancelAnimationFrame(raf); raf = 0; }
     if (canvas) canvas.hidden = true;
   }
   const proj = sq => { const v = sqPos(sq).project(camera), r = canvas.getBoundingClientRect(); return [r.left + (v.x + 1) / 2 * r.width, r.top + (1 - v.y) / 2 * r.height]; };

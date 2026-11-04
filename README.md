@@ -8,6 +8,6 @@
 - Partie en ligne avec un ami : on envoie un lien, chacun joue sur son écran
 - Pendule (3+2, 5+3, 10 min), pseudos, lien spectateur et mode streamer pour les lives
 - 6 plateaux, 3 styles et 4 couleurs de pièces
-- Vue 3D : échiquier en relief qu'on fait tourner, pièces Staunton, ombres et reflets
+- Vue 3D : échiquier en relief vu d'en haut, pièces Staunton, ombres et reflets
 
 Jouer : https://troplife56-source.github.io/trouve-le-coup/
