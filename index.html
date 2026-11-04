@@ -122,7 +122,7 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 .pv { width: 100%; height: 100%; display: grid; place-items: center; font-family: var(--f-piece); line-height: 1; font-size: var(--pfs, 48px); }
 .pv.w { --pf: var(--pw-f); --ps: var(--pw-s); } .pv.b { --pf: var(--pb-f); --ps: var(--pb-s); }
 .pv.glyph { color: var(--pf); -webkit-text-stroke: 1.2px var(--ps); text-shadow: 0 3px 3px rgba(0,0,0,.45); }
-.pv svg { width: 86%; height: 86%; overflow: visible; filter: drop-shadow(0 3px 2px rgba(0,0,0,.45)); }
+.pv svg { width: 86%; height: 86%; overflow: visible; }
 .pv svg * { fill: var(--pf); stroke: var(--ps); stroke-width: 4; stroke-linejoin: round; stroke-linecap: round; }
 .pv svg .ln { fill: none; }
 .pv svg .eye { fill: var(--ps); stroke: none; }
@@ -141,8 +141,8 @@ body[data-board="marbre"] .sq { background-image: linear-gradient(calc(var(--ga)
 .pc {
   position: absolute; width: 12.5%; height: 12.5%; display: grid; place-items: center;
   --pfs: calc(var(--bs, 600px) * .098);
-  will-change: transform;
 }
+.pc.anim, .pc.drag { will-change: transform; }
 .pc.anim { transition: transform .22s cubic-bezier(.3,.7,.3,1); }
 .pc.drag { z-index: 5; transform-origin: center; filter: drop-shadow(0 10px 8px rgba(0,0,0,.5)); }
 .pc.shake { animation: shake .35s; }
@@ -500,10 +500,8 @@ height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
   </main>
 </div>
 
-<script>
-(() => {
+<script id="engine-src">
 "use strict";
-const track = (event, data) => { try { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event }, data || {})); } catch (e) {} };
 /* ================= Engine ================= */
 const FILES = "abcdefgh";
 const START = "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1";
@@ -760,8 +758,9 @@ function order(ms) {
   return ms.sort((a, b) => b._o - a._o);
 }
 let nodes = 0, deadline = 0;
+const TIMEOUT = {};
 function quiesce(g, a, b, d) {
-  nodes++;
+  if ((++nodes & 1023) === 0 && performance.now() > deadline) throw TIMEOUT;
   const stand = evaluate(g);
   if (stand >= b) return b;
   if (stand > a) a = stand;
@@ -775,7 +774,7 @@ function quiesce(g, a, b, d) {
   return a;
 }
 function negamax(g, depth, a, b, ply) {
-  nodes++;
+  if ((++nodes & 1023) === 0 && performance.now() > deadline) throw TIMEOUT;
   if (depth === 0) return quiesce(g, a, b, 0);
   const ms = g.moves();
   if (!ms.length) return g.inCheck() ? -MATE + ply : 0;
@@ -787,21 +786,45 @@ function negamax(g, depth, a, b, ply) {
   }
   return a;
 }
-function bestMove(g, level) {
-  const depth = level === 1 ? 1 : level === 2 ? 2 : 4;
-  const noise = level === 1 ? 90 : level === 2 ? 18 : 4;
+// Débutant and Club: shallow search with a little randomness. Maître: deepens move by move until its time budget runs out.
+function bestMove(g, level, budgetMs) {
   const ms = order(g.moves());
-  let best = null, bestSc = -Infinity;
-  for (const m of ms) {
-    g.make(m);
-    let sc = -negamax(g, depth - 1, -MATE - 1, MATE + 1, 1);
-    g.unmake();
-    sc += (Math.random() - .5) * noise;
-    if (sc > bestSc) { bestSc = sc; best = m; }
+  if (ms.length <= 1) return ms[0] || null;
+  nodes = 0; deadline = performance.now() + (budgetMs || 1500);
+  if (level < 3) {
+    const depth = level === 1 ? 1 : 2, noise = level === 1 ? 90 : 18;
+    let best = ms[0], bestSc = -Infinity;
+    try {
+      for (const m of ms) {
+        g.make(m);
+        let sc; try { sc = -negamax(g, depth - 1, -MATE - 1, MATE + 1, 1); } finally { g.unmake(); }
+        sc += (Math.random() - .5) * noise;
+        if (sc > bestSc) { bestSc = sc; best = m; }
+      }
+    } catch (e) { if (e !== TIMEOUT) throw e; }
+    return best;
+  }
+  let best = ms[0];
+  for (let depth = 1; depth <= 6; depth++) {
+    let bestD = null, a = -MATE - 1;
+    try {
+      for (const m of ms) {
+        g.make(m);
+        let sc; try { sc = -negamax(g, depth - 1, -MATE - 1, -a, 1); } finally { g.unmake(); }
+        if (sc > a) { a = sc; bestD = m; }
+      }
+    } catch (e) { if (e !== TIMEOUT) throw e; break; }
+    if (bestD) { best = bestD; ms.splice(ms.indexOf(bestD), 1); ms.unshift(bestD); }
+    if (a >= MATE - 100) break;
   }
   return best;
 }
 
+</script>
+<script>
+(() => {
+"use strict";
+const track = (event, data) => { try { (window.dataLayer = window.dataLayer || []).push(Object.assign({ event }, data || {})); } catch (e) {} };
 /* ================= Puzzles ================= */
 const LEVELS = { 1: { name: "Débutant", c: "var(--lv-1)", time: 60 }, 2: { name: "Club", c: "var(--lv-2)", time: 90 }, 3: { name: "Maître", c: "var(--lv-3)", time: 120 } };
 const PUZZLES = [
@@ -1449,23 +1472,38 @@ function afterFreeMove() {
   setStatus();
   setTimeout(aiMove, 260);
 }
+// The computer thinks in a background worker so the page never freezes.
+let aiWorker = null, aiReq = 0;
+function getWorker() {
+  if (aiWorker !== null) return aiWorker;
+  try {
+    const src = document.getElementById("engine-src").textContent +
+      "\nonmessage = e => { const g = new Game(e.data.fen); const m = bestMove(g, e.data.level, e.data.ms); postMessage({ id: e.data.id, uci: m ? uciOf(m) : null }); };";
+    aiWorker = new Worker(URL.createObjectURL(new Blob([src], { type: "text/javascript" })));
+  } catch (e) { aiWorker = false; }
+  return aiWorker;
+}
 function aiMove() {
   if (S.mode !== "free" || S.free.over || S.game.turn === S.free.color) return;
   S.free.thinking = true; setStatus(true);
-  const token = S.game;
-  setTimeout(() => {
-    const t0 = performance.now();
-    const clone = new Game(S.game.fen());
-    const m0 = bestMove(clone, S.free.level);
-    const wait = Math.max(0, 450 - (performance.now() - t0));
+  const token = S.game, id = ++aiReq, fen = S.game.fen(), level = S.free.level, t0 = performance.now();
+  const budget = level === 3 ? 1600 : 700;
+  const finish = uci => {
+    if (id !== aiReq) return;
     setTimeout(() => {
-      if (S.game !== token || S.mode !== "free") return;
+      if (S.game !== token || S.mode !== "free" || id !== aiReq) return;
       S.free.thinking = false;
-      const m = m0 && S.game.findUci(uciOf(m0));
+      const m = uci && S.game.findUci(uci);
       if (m) applyMove(m);
       if (!checkOver()) setStatus();
-    }, wait);
-  }, 40);
+    }, Math.max(0, 450 - (performance.now() - t0)));
+  };
+  const onMain = () => setTimeout(() => { const m = bestMove(new Game(fen), level, Math.min(budget, 500)); finish(m ? uciOf(m) : null); }, 40);
+  const w = getWorker();
+  if (!w) return onMain();
+  w.onmessage = e => { if (e.data && e.data.id === id) finish(e.data.uci); };
+  w.onerror = ev => { if (ev && ev.preventDefault) ev.preventDefault(); aiWorker = false; onMain(); };
+  w.postMessage({ fen, level, ms: budget, id });
 }
 function pills(id, key, fn) {
   const el = $(id);
