@@ -767,7 +767,7 @@ function quiesce(g, a, b, d) {
   if (d > 5) return a;
   const caps = order(g.moves().filter(m => m.captured || m.promo));
   for (const m of caps) {
-    g.make(m); const sc = -quiesce(g, -b, -a, d + 1); g.unmake();
+    g.make(m); let sc; try { sc = -quiesce(g, -b, -a, d + 1); } finally { g.unmake(); }
     if (sc >= b) return b;
     if (sc > a) a = sc;
   }
@@ -780,7 +780,7 @@ function negamax(g, depth, a, b, ply) {
   if (!ms.length) return g.inCheck() ? -MATE + ply : 0;
   order(ms);
   for (const m of ms) {
-    g.make(m); const sc = -negamax(g, depth - 1, -b, -a, ply + 1); g.unmake();
+    g.make(m); let sc; try { sc = -negamax(g, depth - 1, -b, -a, ply + 1); } finally { g.unmake(); }
     if (sc >= b) return b;
     if (sc > a) a = sc;
   }
@@ -835,7 +835,7 @@ const PUZZLES = [
   { t: "La dame qui surgit", lv: 1, fen: "r1bqkbnr/pppp1ppp/8/4N3/2BnP3/8/PPPP1PPP/RNBQK2R b KQkq - 0 4",
     goal: "Les Noirs jouent et punissent.", sub: "Les Blancs viennent de prendre un pion. Erreur ?",
     line: ["d8g5","e5f7","g5g2","h1f1","g2e4","c4e2","d4f3"],
-    ex: "La dame noire va en g5 : elle attaque le cavalier e5 et le pion g2. Si le cavalier prend le pion f7, la dame prend le pion g2, puis le pion e4 avec échec. Le fou blanc doit s'interposer en e2 et le cavalier d4 saute en f3 : échec et mat." },
+    ex: "La dame noire va en g5 : double attaque sur le cavalier e5 et le pion g2, les Blancs ne peuvent pas tout protéger. S'ils sont gourmands et prennent le pion f7, la dame prend g2, puis e4 avec échec ; le fou s'interpose en e2 et le cavalier saute en f3 : échec et mat. Leur meilleure défense est 5.Fxf7+ Re7 6.O-O Dxe5 7.Fxg8 Txg8 : les Noirs gagnent un cavalier contre deux pions." },
   { t: "Le couloir fermé", lv: 1, fen: "3rr1k1/5ppp/8/q7/8/1Q6/4RPPP/4R1K1 w - - 0 1",
     goal: "Les Blancs jouent et matent en 2.", sub: "Le roi noir est bien protégé… par trois pions.",
     line: ["e2e8","d8e8","e1e8"],
